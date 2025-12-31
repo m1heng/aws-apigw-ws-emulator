@@ -121,6 +121,7 @@ export class AWSWebSocketGateway {
         if (connection && connection.ws.readyState === WebSocket.OPEN) {
           connection.ws.send(body);
           connection.lastActivityAt = new Date();
+          this.resetIdleTimeout(connectionId);
           res.writeHead(200);
           res.end();
           logger.http('POST', `/@connections/${connectionId}`, 200);

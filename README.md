@@ -35,7 +35,7 @@ aws-apigw-ws-emulator --backend http://localhost:8080
 ### Using Docker
 
 ```bash
-docker run -p 3001:3001 m1heng/aws-apigw-ws-emulator --backend http://host.docker.internal:8080
+docker run -p 3001:3001 ghcr.io/m1heng/aws-apigw-ws-emulator
 ```
 
 ## Architecture

@@ -5,7 +5,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
 import { AWSWebSocketGateway } from './server';
-import { GatewayConfig, DEFAULT_CONFIG } from './types';
+import { GatewayConfig, DEFAULT_CONFIG, IntegrationMode } from './types';
 import { logger } from './logger';
 
 const packageJson = JSON.parse(
@@ -20,6 +20,7 @@ program
   .version(packageJson.version)
   .option('-p, --port <port>', 'WebSocket server port', String(DEFAULT_CONFIG.port))
   .option('-s, --stage <stage>', 'API stage name', DEFAULT_CONFIG.stage)
+  .option('-m, --integration-mode <mode>', 'Integration mode: lambda_proxy or http', DEFAULT_CONFIG.integrationMode)
   .option('--idle-timeout <seconds>', 'Idle timeout in seconds', String(DEFAULT_CONFIG.idleTimeout))
   .option('--hard-timeout <seconds>', 'Hard timeout in seconds', String(DEFAULT_CONFIG.hardTimeout))
   .option('-c, --config <file>', 'Config file (YAML or JSON)')
@@ -55,6 +56,14 @@ program
     }
     if (options.stage !== DEFAULT_CONFIG.stage) {
       finalConfig.stage = options.stage;
+    }
+    if (options.integrationMode !== DEFAULT_CONFIG.integrationMode) {
+      if (options.integrationMode === 'lambda_proxy' || options.integrationMode === 'http') {
+        finalConfig.integrationMode = options.integrationMode as IntegrationMode;
+      } else {
+        logger.error(`Invalid integration mode: ${options.integrationMode}. Use 'lambda_proxy' or 'http'`);
+        process.exit(1);
+      }
     }
     if (options.idleTimeout !== String(DEFAULT_CONFIG.idleTimeout)) {
       finalConfig.idleTimeout = parseInt(options.idleTimeout, 10);

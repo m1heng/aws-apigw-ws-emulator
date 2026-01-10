@@ -43,6 +43,20 @@ export interface AWSWebSocketEvent {
 // Gateway Configuration Types
 // ============================================================================
 
+/**
+ * Integration mode for backend communication:
+ * - 'lambda_proxy': Send full AWS Lambda event as JSON body (default)
+ *   - connectionId in body.requestContext.connectionId
+ *   - Suitable for Lambda-style backends
+ *
+ * - 'http': Send connectionId and context in HTTP headers
+ *   - connectionId in header 'connectionId'
+ *   - queryStringParameters forwarded as URL params
+ *   - Message body sent directly (not wrapped)
+ *   - Suitable for traditional HTTP backends
+ */
+export type IntegrationMode = 'lambda_proxy' | 'http';
+
 export interface RouteIntegration {
   uri: string;
 }
@@ -52,6 +66,7 @@ export interface GatewayConfig {
   stage: string;
   apiId: string;
   domainName: string;
+  integrationMode: IntegrationMode;
   routeSelectionExpression?: string;
   routes: Record<string, RouteIntegration>;
   idleTimeout: number;
@@ -64,6 +79,7 @@ export const DEFAULT_CONFIG: GatewayConfig = {
   stage: 'local',
   apiId: 'local',
   domainName: '',
+  integrationMode: 'lambda_proxy',
   routes: {
     $connect: { uri: 'http://localhost:8080/ws/connect' },
     $disconnect: { uri: 'http://localhost:8080/ws/disconnect' },

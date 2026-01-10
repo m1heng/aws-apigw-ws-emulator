@@ -52,6 +52,35 @@ describe('Timeout Management', () => {
       const closeInfo = await ctx.waitForClose(ws, 2000);
       expect(closeInfo.code).toBe(1001);
     });
+
+    it('should reset idle timeout on postToConnection', async () => {
+      const ws = await ctx.createConnection();
+      await sleep(100);
+
+      const connectEvent = ctx.backend.getEventsByRoute('$connect')[0];
+      const connectionId = connectEvent.requestContext.connectionId;
+
+      // Wait 600ms, then send message via postToConnection to reset timeout
+      await sleep(600);
+      const response = await fetch(
+        `${ctx.httpUrl}/@connections/${connectionId}`,
+        {
+          method: 'POST',
+          body: 'keep alive via management API',
+        }
+      );
+      expect(response.status).toBe(200);
+
+      // Wait another 600ms - should still be connected if timeout was reset
+      await sleep(600);
+
+      // Connection should still be open
+      expect(ws.readyState).toBe(ws.OPEN);
+
+      // Now wait for timeout
+      const closeInfo = await ctx.waitForClose(ws, 2000);
+      expect(closeInfo.code).toBe(1001);
+    });
   });
 
   describe('Hard Timeout', () => {

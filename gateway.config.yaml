@@ -4,6 +4,18 @@ port: 3001
 stage: dev
 apiId: local
 
+# Integration mode:
+# - 'lambda_proxy' (default): Send full AWS Lambda event as JSON body
+#   - connectionId in body.requestContext.connectionId
+#   - Suitable for Lambda-style backends
+#
+# - 'http': Send connectionId in HTTP headers
+#   - connectionId in header 'connectionId'
+#   - queryStringParameters forwarded as URL params
+#   - Message body sent directly (not wrapped)
+#   - Suitable for traditional HTTP backends (like Spring Boot)
+integrationMode: lambda_proxy
+
 # Route integrations
 routes:
   $connect:

@@ -376,7 +376,50 @@ export class AWSWebSocketGateway {
       return false;
     }
 
-    // Build AWS Lambda event
+    try {
+      let response: Response;
+
+      if (this.config.integrationMode === 'http') {
+        // HTTP integration mode: connectionId in headers, body sent directly
+        response = await this.callBackendHttp(
+          integration.uri,
+          connection,
+          routeKey,
+          eventType,
+          body,
+          disconnectOptions
+        );
+      } else {
+        // Lambda proxy mode (default): full event as JSON body
+        response = await this.callBackendLambdaProxy(
+          integration.uri,
+          connection,
+          routeKey,
+          eventType,
+          body,
+          disconnectOptions
+        );
+      }
+
+      logger.debug(`${routeKey} callback: ${response.status}`);
+      return response.ok;
+    } catch (error) {
+      logger.error(`${routeKey} callback failed:`, (error as Error).message);
+      return false;
+    }
+  }
+
+  /**
+   * Lambda Proxy mode: Send full AWS Lambda event as JSON body
+   */
+  private async callBackendLambdaProxy(
+    uri: string,
+    connection: Connection,
+    routeKey: string,
+    eventType: 'CONNECT' | 'DISCONNECT' | 'MESSAGE',
+    body: string | null,
+    disconnectOptions?: DisconnectOptions
+  ): Promise<Response> {
     const event = this.buildLambdaEvent(
       connection,
       routeKey,
@@ -385,21 +428,56 @@ export class AWSWebSocketGateway {
       disconnectOptions
     );
 
-    try {
-      const response = await fetch(integration.uri, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(event),
-      });
+    return fetch(uri, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    });
+  }
 
-      logger.debug(`${routeKey} callback: ${response.status}`);
-      return response.ok;
-    } catch (error) {
-      logger.error(`${routeKey} callback failed:`, (error as Error).message);
-      return false;
+  /**
+   * HTTP integration mode: Send connectionId in headers, body directly
+   * Similar to AWS API Gateway HTTP integration with RequestParameters mapping
+   */
+  private async callBackendHttp(
+    uri: string,
+    connection: Connection,
+    routeKey: string,
+    eventType: 'CONNECT' | 'DISCONNECT' | 'MESSAGE',
+    body: string | null,
+    disconnectOptions?: DisconnectOptions
+  ): Promise<Response> {
+    // Build URL with query parameters (for $connect)
+    const url = new URL(uri);
+    if (Object.keys(connection.queryParams).length > 0) {
+      for (const [key, value] of Object.entries(connection.queryParams)) {
+        url.searchParams.set(key, value);
+      }
     }
+
+    // Build headers with connection context
+    const headers: Record<string, string> = {
+      'Content-Type': body ? 'application/json' : 'text/plain',
+      'connectionId': connection.id,
+      'X-Amzn-Apigateway-Api-Id': this.config.apiId,
+      'X-Amzn-Apigateway-Stage': this.config.stage,
+      'X-Event-Type': eventType,
+      'X-Route-Key': routeKey,
+    };
+
+    // Add disconnect info if applicable
+    if (disconnectOptions) {
+      headers['X-Disconnect-Status-Code'] = String(disconnectOptions.disconnectStatusCode);
+      headers['X-Disconnect-Reason'] = disconnectOptions.disconnectReason;
+    }
+
+    return fetch(url.toString(), {
+      method: 'POST',
+      headers,
+      body: body || undefined,
+    });
   }
 
   private getEventType(routeKey: string): 'CONNECT' | 'DISCONNECT' | 'MESSAGE' {

@@ -1,6 +1,6 @@
 {
   "name": "aws-apigw-ws-emulator",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Local emulator for AWS API Gateway WebSocket with HTTP integration support",
   "keywords": [
     "aws",
